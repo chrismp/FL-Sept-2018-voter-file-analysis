@@ -1,7 +1,8 @@
-require(dplyr)
-require(ggplot2)
-require(data.table)
-require(lubridate)
+library(dplyr)
+library(ggplot2)
+library(data.table)
+library(lubridate)
+library(extrafont)
 
 options(scipen=999) # Remove scientific notation: https://stackoverflow.com/questions/5352099/how-to-disable-scientific-notation
 
@@ -93,6 +94,13 @@ OutputDir <- "Output/"
 
   
 # ADD EXTRA COLUMNS FOR LATER ANALYSIS 
+  # Party
+  DFVoterDetail2$PartyFixed <- ifelse(
+    test = DFVoterDetail2$Party.Affiliation=="DEM" | DFVoterDetail2$Party.Affiliation=="REP" | DFVoterDetail2$Party.Affiliation=="NPA",
+    yes = DFVoterDetail2$Party.Affiliation,
+    no = "Other"
+  )
+  
   # Race
   DFVoterDetail2$RaceLabel <- ifelse(
     test = DFVoterDetail2$Race==1,
@@ -122,6 +130,13 @@ OutputDir <- "Output/"
         )
       )
     )
+  )
+  
+  # Race 2
+  DFVoterDetail2$RaceLabel2 <- ifelse(
+    test = (DFVoterDetail2$RaceLabel=="Black, Not Hispanic") | (DFVoterDetail2$RaceLabel=="Hispanic") | (DFVoterDetail2$RaceLabel=="White, Not Hispanic") | (DFVoterDetail2$RaceLabel=="Unknown"),
+    yes = DFVoterDetail2$RaceLabel,
+    no = "Other"
   )
   
   # Age
@@ -169,6 +184,8 @@ OutputDir <- "Output/"
     )
   )
   
+  # TODO Remove voters who registered after July 30, 2018
+  
 
 # PRE-ANALYSIS
 # AUG 28 FINAL VOTE COUNT BY COUNTY; http://archive.li/0MGnR
@@ -215,13 +232,16 @@ OutputDir <- "Output/"
   )
   
   DemographicsToSummarize <- c(
-    "Party.Affiliation",
+    "PartyFixed",
     "RaceLabel",
+    "RaceLabel2",
     "AgeGroup",
     "SexLabel"
   )
   
+  DFList <- list()
   i <- 0
+  j <- 1
   for(DataFrame in DataFramesToAnalyze) {
     PartyFilter <- ifelse(
       test = i==0 | i==3,
@@ -233,25 +253,42 @@ OutputDir <- "Output/"
       )
     )
     
+    LoopingOverAllRegisteredVoters <- i < 3
     ElectorateFilter <- ifelse(
-      test = i<3,
+      test = LoopingOverAllRegisteredVoters,
       yes = "AllVoters",
       no = "Aug28Voters"
     )
     
     for (Demographic in DemographicsToSummarize) {
-      assign(
-        x = paste0("SummaryCount",ElectorateFilter,PartyFilter,Demographic),
-        value = FuncMakeSummaryCounts(
-          DataFrame = DataFrame,
-          Demographic
-        )
+      DF <- FuncMakeSummaryCounts(
+        DataFrame = DataFrame,
+        Demographic
       )
+      DF$Electorate <- ElectorateFilter
+      DataName <- paste0("SummaryCount",ElectorateFilter,PartyFilter,Demographic)
+      DFList[[DataName]] = DF
+      j <- j+1
     }
     i <- i+1
   }
+  
+
+# FREE UP MEMORY
   rm(
+    Aug28VoterHistory,
+    DFMerge,
+    DFVoterDetail2,
     DataFramesToAnalyze,
-    DataFrame
+    DataFrame,
+    DF
   )
   gc()
+  
+  
+# CHARTS
+  ChartDataParties <- rbind(
+    DFList[["SummaryCountAllVotersAllPartiesPartyFixed"]], 
+    DFList[["SummaryCountAug28VotersAllPartiesPartyFixed"]]
+  )
+  
