@@ -297,13 +297,25 @@ OutputDir <- "Output/"
     StyleRules <- list()
     StyleRules$HedFont <- "Pragati Narrow"
     StyleRules$BarWidth <- 0.5
+    
     StyleRules$Colors <- list()
+    
     StyleRules$Colors$ChartBackground <- "#eeeeee"
     StyleRules$Colors$LineColor <- "#cccccc"
+    
     StyleRules$Colors$Parties <- list()
-    StyleRules$Colors$Parties$Democrats <- "#67a9cf"
-    StyleRules$Colors$Parties$Republicans <- "#ef8a62"
+    StyleRules$Colors$Parties$Democrats <- "#1f78b4"
+    StyleRules$Colors$Parties$Republicans <- "#e31a1c"
     StyleRules$Colors$Parties$Neither <- "#bbbbbb"
+    
+    StyleRules$Colors$Race <- list()
+    StyleRules$Colors$Race$Black <- "#66c2a5"
+    StyleRules$Colors$Race$Hispanic <- "#fc8d62"
+    StyleRules$Colors$Race$Other <- "#8da0cb"
+    StyleRules$Colors$Race$Unknown <- "#bbbbbb"
+    StyleRules$Colors$Race$White <- "#e78ac3"
+    
+    StyleRules$YExpand <- 1.05
     StyleRules$Caption <- "Chris Persaud / Datavizz.com\nSource: Florida Division of Elections, Sept. 2018 voter file"
     
   # Themes
@@ -416,7 +428,7 @@ OutputDir <- "Output/"
       scale_y_continuous(
         labels = func.percentFormatX, # Using this function because the chart will flip
         expand = c(0,0),
-        limits = c(0,1.05)       
+        limits = c(0,StyleRules$YExpand)       
       ) +
       geom_text( # Add figures to bars
         aes(
@@ -434,7 +446,7 @@ OutputDir <- "Output/"
         size = 5
       ) +
       geom_text(
-        label = "Florida primary voters vs. all registered voters",
+        label = "2018 Florida primary voters vs. all registered voters, by party",
         inherit.aes = F,
         x = ChartPartyBreakdownStyle$HED$x,
         y = ChartPartyBreakdownStyle$HED$y,
@@ -445,7 +457,7 @@ OutputDir <- "Output/"
         fontface = "bold"
       ) +
       geom_text(
-        label = "Who is registered to vote and who voted Aug. 28, 2018",
+        label = "Who is registered to vote and who voted in Florida's Aug. 2018 primary",
         inherit.aes = F,
         x = ChartPartyBreakdownStyle$HED$x - 0.5,
         y = ChartPartyBreakdownStyle$HED$y,
@@ -492,10 +504,127 @@ OutputDir <- "Output/"
       dpi = 144
     )
   
-  
-  
-  
-  
+  # Race
+    ChartDataRace <- rbind(
+      DFList[["SummaryCountAllVotersAllPartiesRaceLabel2"]], 
+      DFList[["SummaryCountAug28VotersAllPartiesRaceLabel2"]]
+    )
+    ChartDataRace$RaceLabel2 <- factor(
+      x = ChartDataRace$RaceLabel2,
+      levels = rev(c("White, Not Hispanic","Black, Not Hispanic","Hispanic","Other","Unknown"))
+    )
+
+    ChartRaceStyle <- list()
+    ChartRaceStyle$HED <- list()
+    ChartRaceStyle$HED$x <- 5.2
+    ChartRaceStyle$HED$y <- -0.1
+    ChartRace <- ggplot(
+      data = ChartDataRace,
+      aes(
+        x = Electorate,
+        y = PercentOfTotal
+      )
+    ) + 
+      geom_bar(
+        aes(fill=RaceLabel2),
+        stat = "identity",
+        width = StyleRules$BarWidth
+      ) +
+      scale_fill_manual(
+        values = rev(c(
+          StyleRules$Colors$Race$White,
+          StyleRules$Colors$Race$Black,
+          StyleRules$Colors$Race$Hispanic,
+          StyleRules$Colors$Race$Other,
+          StyleRules$Colors$Race$Unknown
+        ))
+      ) +
+      scale_x_discrete(
+        labels = c("All\nFlorida\nvoters","Aug. 28\nvoters"),
+        expand = c(StyleRules$BarWidth*4, 0)
+      ) +
+      scale_y_continuous(
+        labels = func.percentFormatX, # Using this function because the chart will flip
+        expand = c(0,0),
+        limits = c(0,StyleRules$YExpand)       
+      ) +
+      geom_text( # Add figures to bars
+        aes(
+          label = ifelse(
+            test = PercentOfTotal > 0.05,
+            yes = paste0(
+              sprintf(fmt = "%.0f", (PercentOfTotal*100)),
+              '%'
+            ),
+            no = ''
+          ),
+          group = RaceLabel2
+        ),
+        position = position_stack(
+          vjust = 0.5
+        ),
+        fontface = "bold",
+        color = "#ffffff",
+        size = 5
+      ) +
+      geom_text(
+        label = "2018 Florida primary voters vs. all registered voters, by race",
+        inherit.aes = F,
+        x = ChartRaceStyle$HED$x,
+        y = ChartRaceStyle$HED$y,
+        check_overlap = T,
+        hjust = 0,
+        size = 8,
+        family = StyleRules$HedFont,
+        fontface = "bold"
+      ) +
+      geom_text(
+        label = "Who is registered to vote and who voted in Florida's Aug. 2018 primary",
+        inherit.aes = F,
+        x = ChartRaceStyle$HED$x - 0.4,
+        y = ChartRaceStyle$HED$y,
+        check_overlap = T,
+        hjust = 0,
+        size = 5
+      ) +
+      labs(
+        caption = StyleRules$Caption
+      ) +
+      guides(
+        fill = guide_legend(reverse = T)
+      ) +
+      coord_flip(
+        clip = "off"
+      ) +
+      Themes$Custom +
+      Themes$FlippedBar + 
+      theme(
+        legend.background = element_rect(
+          fill = StyleRules$Colors$ChartBackground
+        ),
+        legend.position = c(0.2, 0.9),
+        legend.direction = "vertical",
+        legend.text = element_text(
+          size = 10,
+          colour = "#666666",
+          margin = margin(l = 2.5)
+        ),
+        plot.margin = unit(
+          x = c(5,1,1,1),
+          units = "line"
+        )
+      )
+    ChartRace
+    ggsave(
+      filename = "Race.png",
+      plot = ChartRace,
+      device = "png",
+      path = OutputDir,
+      width = 200,
+      height = 125,
+      units = "mm",
+      dpi = 144
+    )
   
   
   
