@@ -4,6 +4,8 @@ library(data.table)
 library(lubridate)
 library(extrafont)
 
+source("localfunctions.r")
+
 options(scipen=999) # Remove scientific notation: https://stackoverflow.com/questions/5352099/how-to-disable-scientific-notation
 
 YearMonthDayDirectory <- "20180911"
@@ -96,9 +98,13 @@ OutputDir <- "Output/"
 # ADD EXTRA COLUMNS FOR LATER ANALYSIS 
   # Party
   DFVoterDetail2$PartyFixed <- ifelse(
-    test = DFVoterDetail2$Party.Affiliation=="DEM" | DFVoterDetail2$Party.Affiliation=="REP" | DFVoterDetail2$Party.Affiliation=="NPA",
-    yes = DFVoterDetail2$Party.Affiliation,
-    no = "Other"
+    test = DFVoterDetail2$Party.Affiliation=="DEM",
+    yes = "Democrat",
+    no = ifelse(
+      test =  DFVoterDetail2$Party.Affiliation=="REP",
+      yes = "Republican",
+      no = "Neither"
+    )
   )
   
   # Race
@@ -287,8 +293,209 @@ OutputDir <- "Output/"
   
   
 # CHARTS
-  ChartDataParties <- rbind(
-    DFList[["SummaryCountAllVotersAllPartiesPartyFixed"]], 
-    DFList[["SummaryCountAug28VotersAllPartiesPartyFixed"]]
-  )
+  # Style rules
+    StyleRules <- list()
+    StyleRules$HedFont <- "Pragati Narrow"
+    StyleRules$BarWidth <- 0.5
+    StyleRules$Colors <- list()
+    StyleRules$Colors$ChartBackground <- "#eeeeee"
+    StyleRules$Colors$LineColor <- "#cccccc"
+    StyleRules$Colors$Parties <- list()
+    StyleRules$Colors$Parties$Democrats <- "#67a9cf"
+    StyleRules$Colors$Parties$Republicans <- "#ef8a62"
+    StyleRules$Colors$Parties$Neither <- "#bbbbbb"
+    StyleRules$Caption <- "Chris Persaud / Datavizz.com\nSource: Florida Division of Elections, Sept. 2018 voter file"
+    
+  # Themes
+    Themes <- list()
+    Themes$Custom <- theme(
+      plot.title = element_text(
+        size = 20,
+        family = StyleRules$HedFont,
+        face = "bold"
+      ),
+      plot.subtitle = element_text(
+        size = 13,
+        margin = margin(
+          b = unit(20, "pt")
+        )
+      ),
+      plot.caption = element_text(
+        size = 9,
+        face = "italic",
+        color = "#333333"
+      ),
+      axis.line.x = element_line(
+        color = "#000000"
+      ),
+      axis.ticks = element_line(
+        color = StyleRules$Colors$LineColor
+      ),
+      axis.title.x = element_text(
+        margin = margin(
+          t = 10
+        )
+      ),
+      axis.text = element_text(
+        size = 12
+      ),
+      axis.ticks.x = element_blank(),
+      axis.title.y = element_text(
+        margin = margin(
+          r = 10
+        )
+      ),
+      legend.title = element_blank(),
+      legend.key = element_blank(),
+      legend.key.height = unit(15,"pt"),
+      legend.key.width = unit(30,"pt"),
+      plot.background = element_rect(
+        fill = StyleRules$Colors$ChartBackground
+      ),
+      panel.background = element_rect(
+        fill = StyleRules$Colors$ChartBackground
+      ),
+      panel.grid.major = element_line(
+        color = StyleRules$Colors$LineColor,
+        size = 0.25
+      ),
+      panel.grid.minor = element_blank(),
+      plot.margin = margin(
+        t = 5,
+        r = 5,
+        b = 5,
+        l = 5
+      )
+    )
+    
+    Themes$FlippedBar <- theme(
+      axis.title.x = element_blank(),
+      axis.title.y = element_blank(),
+      axis.line.x = element_blank(),
+      axis.ticks = element_blank(),
+      panel.grid.major.y = element_blank()
+    )
+    
+  # Party affiliation by electorate
+    ChartDataParties <- rbind(
+      DFList[["SummaryCountAllVotersAllPartiesPartyFixed"]], 
+      DFList[["SummaryCountAug28VotersAllPartiesPartyFixed"]]
+    )
+    ChartDataParties$PartyFixed <- factor(
+      x = ChartDataParties$PartyFixed,
+      levels = rev(c("Democrat","Republican","Neither"))
+    )
+    
+    ChartPartyBreakdownStyle <- list()
+    ChartPartyBreakdownStyle$HED <- list()
+    ChartPartyBreakdownStyle$HED$x <- 5
+    ChartPartyBreakdownStyle$HED$y <- -0.1
+    ChartPartyBreakdown <- ggplot(
+      data = ChartDataParties,
+      aes(
+        x = Electorate,
+        y = PercentOfTotal
+      )
+    ) + 
+      geom_bar(
+        aes(fill=PartyFixed),
+        stat = "identity",
+        width = StyleRules$BarWidth
+      ) +
+      scale_fill_manual(
+        values = rev(c(
+          StyleRules$Colors$Parties$Democrats,
+          StyleRules$Colors$Parties$Republicans,
+          StyleRules$Colors$Parties$Neither
+        ))
+      ) +
+      scale_x_discrete(
+        labels = c("All\nFlorida\nvoters","Aug. 28\nvoters"),
+        expand = c(StyleRules$BarWidth*4, 0)
+      ) +
+      scale_y_continuous(
+        labels = func.percentFormatX, # Using this function because the chart will flip
+        expand = c(0,0),
+        limits = c(0,1.05)       
+      ) +
+      geom_text( # Add figures to bars
+        aes(
+          label = paste0(
+            sprintf(fmt = "%.0f", (PercentOfTotal*100)),
+            '%'
+          ),
+          group = PartyFixed
+        ),
+        position = position_stack(
+          vjust = 0.5
+        ),
+        fontface = "bold",
+        color = "#ffffff",
+        size = 5
+      ) +
+      geom_text(
+        label = "Florida primary voters vs. all registered voters",
+        inherit.aes = F,
+        x = ChartPartyBreakdownStyle$HED$x,
+        y = ChartPartyBreakdownStyle$HED$y,
+        check_overlap = T,
+        hjust = 0,
+        size = 8,
+        family = StyleRules$HedFont,
+        fontface = "bold"
+      ) +
+      geom_text(
+        label = "Who is registered to vote and who voted Aug. 28, 2018",
+        inherit.aes = F,
+        x = ChartPartyBreakdownStyle$HED$x - 0.5,
+        y = ChartPartyBreakdownStyle$HED$y,
+        check_overlap = T,
+        hjust = 0,
+        size = 5
+      ) +
+      labs(
+        caption = StyleRules$Caption
+      ) +
+      guides(
+        fill = guide_legend(reverse = T)
+      ) +
+      coord_flip(
+        clip = "off"
+      ) +
+      Themes$Custom +
+      Themes$FlippedBar + 
+      theme(
+        legend.background = element_rect(
+          fill = StyleRules$Colors$ChartBackground
+        ),
+        legend.position = c(0.2, 0.8),
+        legend.direction = "vertical",
+        legend.text = element_text(
+          size = 10,
+          colour = "#666666",
+          margin = margin(l = 2.5)
+        ),
+        plot.margin = unit(
+          x = c(5,1,1,1),
+          units = "line"
+        )
+      )
+    ChartPartyBreakdown
+    ggsave(
+      filename = "Parties.png",
+      plot = ChartPartyBreakdown,
+      device = "png",
+      path = OutputDir,
+      width = 200,
+      height = 125,
+      units = "mm",
+      dpi = 144
+    )
+  
+  
+  
+  
+  
+  
+  
   
