@@ -315,6 +315,14 @@ OutputDir <- "Output/"
     StyleRules$Colors$Race$Unknown <- "#bbbbbb"
     StyleRules$Colors$Race$White <- "#e78ac3"
     
+    StyleRules$Colors$AgeGroup <- list()
+    StyleRules$Colors$AgeGroup$X1829 <- "#fdd0a2"
+    StyleRules$Colors$AgeGroup$X3039 <- "#fdae6b"
+    StyleRules$Colors$AgeGroup$X4049 <- "#fd8d3c"
+    StyleRules$Colors$AgeGroup$X5059 <- "#e6550d"
+    StyleRules$Colors$AgeGroup$X60Plus <- "#a63603"
+    StyleRules$Colors$AgeGroup$Unknown <- "#bbbbbb"
+    
     StyleRules$YExpand <- 1.05
     StyleRules$Caption <- "Chris Persaud / Datavizz.com\nSource: Florida Division of Elections, Sept. 2018 voter file"
     
@@ -626,5 +634,130 @@ OutputDir <- "Output/"
       dpi = 144
     )
   
-  
-  
+  # Age groups
+    ChartDataAgeGroup <- rbind(
+      DFList[["SummaryCountAllVotersAllPartiesAgeGroup"]], 
+      DFList[["SummaryCountAug28VotersAllPartiesAgeGroup"]]
+    )
+    ChartDataAgeGroup$AgeGroup <- ifelse(
+      test = is.na(ChartDataAgeGroup$AgeGroup),
+      yes = "Unknown",
+      no = ChartDataAgeGroup$AgeGroup
+    )
+    ChartDataAgeGroup$AgeGroup <- factor(
+      x = ChartDataAgeGroup$AgeGroup,
+      levels = rev(c("18-29","30-39","40-49","50-59","60+","Unknown"))
+    )
+    
+    ChartAgeGroupStyle <- list()
+    ChartAgeGroupStyle$HED <- list()
+    ChartAgeGroupStyle$HED$x <- 5.2
+    ChartAgeGroupStyle$HED$y <- -0.1
+    ChartAgeGroup <- ggplot(
+      data = ChartDataAgeGroup,
+      aes(
+        x = Electorate,
+        y = PercentOfTotal
+      )
+    ) + 
+      geom_bar(
+        aes(fill=AgeGroup),
+        stat = "identity",
+        width = StyleRules$BarWidth
+      ) +
+      scale_fill_manual(
+        values = rev(c(
+          StyleRules$Colors$AgeGroup$X1829,
+          StyleRules$Colors$AgeGroup$X3039,
+          StyleRules$Colors$AgeGroup$X4049,
+          StyleRules$Colors$AgeGroup$X5059,
+          StyleRules$Colors$AgeGroup$X60Plus,
+          StyleRules$Colors$AgeGroup$Unknown
+        ))
+      ) +
+      scale_x_discrete(
+        labels = c("All\nFlorida\nvoters","Aug. 28\nvoters"),
+        expand = c(StyleRules$BarWidth*4, 0)
+      ) +
+      scale_y_continuous(
+        labels = func.percentFormatX, # Using this function because the chart will flip
+        expand = c(0,0),
+        limits = c(0,StyleRules$YExpand)       
+      ) +
+      geom_text( # Add figures to bars
+        aes(
+          label = ifelse(
+            test = PercentOfTotal > 0.05,
+            yes = paste0(
+              sprintf(fmt = "%.0f", (PercentOfTotal*100)),
+              '%'
+            ),
+            no = ''
+          ),
+          group = AgeGroup
+        ),
+        position = position_stack(
+          vjust = 0.5
+        ),
+        fontface = "bold",
+        color = "#ffffff",
+        size = 5
+      ) +
+      geom_text(
+        label = "2018 Florida primary voters vs. all registered voters, by age",
+        inherit.aes = F,
+        x = ChartAgeGroupStyle$HED$x,
+        y = ChartAgeGroupStyle$HED$y,
+        check_overlap = T,
+        hjust = 0,
+        size = 8,
+        family = StyleRules$HedFont,
+        fontface = "bold"
+      ) +
+      geom_text(
+        label = "Who is registered to vote and who voted in Florida's Aug. 2018 primary",
+        inherit.aes = F,
+        x = ChartAgeGroupStyle$HED$x - 0.4,
+        y = ChartAgeGroupStyle$HED$y,
+        check_overlap = T,
+        hjust = 0,
+        size = 5
+      ) +
+      labs(
+        caption = StyleRules$Caption
+      ) +
+      guides(
+        fill = guide_legend(reverse = T)
+      ) +
+      coord_flip(
+        clip = "off"
+      ) +
+      Themes$Custom +
+      Themes$FlippedBar + 
+      theme(
+        legend.background = element_rect(
+          fill = StyleRules$Colors$ChartBackground
+        ),
+        legend.position = c(0.2, 0.9),
+        legend.direction = "vertical",
+        legend.text = element_text(
+          size = 10,
+          colour = "#666666",
+          margin = margin(l = 2.5)
+        ),
+        plot.margin = unit(
+          x = c(5,1,1,1),
+          units = "line"
+        )
+      )
+    ChartAgeGroup
+    ggsave(
+      filename = "AgeGroups.png",
+      plot = ChartAgeGroup,
+      device = "png",
+      path = OutputDir,
+      width = 200,
+      height = 130,
+      units = "mm",
+      dpi = 144
+    )  
